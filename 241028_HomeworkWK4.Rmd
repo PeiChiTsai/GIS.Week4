@@ -1,0 +1,30 @@
+---
+title: "241028_Homework"
+author: "PeggyTsai"
+date: "2024-10-28"
+output: html_document
+---
+
+Library the needed packages.
+```{r}
+library(terra)
+library(here)
+library(sf)
+library(readr)
+```
+
+
+Load data in
+```{r}
+
+WorldMapShp <- st_read(here("Homework4",
+                            "Materials", 
+                            "World_Countries",
+                            "World_Countries_Generalized.shp"))
+
+WorldGenderData <- read_csv(here("Homework4",
+                                 "materials", 
+                                 "hdr-data.csv"))
+
+```
+
