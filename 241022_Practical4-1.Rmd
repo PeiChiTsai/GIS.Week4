@@ -6,7 +6,16 @@ output: html_document
 ---
 
 hihi
+<<<<<<< HEAD
 hihihi!!!useu
+=======
+hihihi!!!
+test on github
+
+2024.10.28
+test again on Rstudio
+
+>>>>>>> e96efdaa06b42481b256334bb1783fd91ed2ca96
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
