@@ -5,26 +5,195 @@ date: "2024-10-28"
 output: html_document
 ---
 
-Library the needed packages.
+
+-------------------------------------------------------------
+#Step 0: Library the needed packages.
+-------------------------------------------------------------
 ```{r}
 library(terra)
 library(here)
 library(sf)
 library(readr)
+library(stringr)
+library(janitor)
+library(dplyr)
+library(tmap)
+library(tmaptools)
+library(tidyr)
+library(ggplot2)
+library(plotly)
+
 ```
 
-
-Load data in
+-------------------------------------------------------------
+#Step 1: Load data in.Clean column name.
+-------------------------------------------------------------
 ```{r}
 
+#1.0 World map shapefile
 WorldMapShp <- st_read(here("Homework4",
                             "Materials", 
                             "World_Countries",
                             "World_Countries_Generalized.shp"))
+#1.1 Clean the column name by janitor::clean_names
+WorldMapShp <- clean_names(WorldMapShp)
+#1.2 Remove unneeded columns
+WorldMapShp <- WorldMapShp %>%
+  select(country)
+#test & see
+plot(WorldMapShp)
 
+
+#2.0 World gender data csv file
 WorldGenderData <- read_csv(here("Homework4",
                                  "materials", 
                                  "hdr-data.csv"))
+#2.1 Clean the column name
+WorldGenderData <- clean_names(WorldGenderData)
+#2.2 Remove unneeded columns
+WorldGenderData <- WorldGenderData %>% 
+  select(country,year,value)
+
 
 ```
 
+-------------------------------------------------------------
+#Step 2: Filter target data - 2010 and 2019
+-------------------------------------------------------------
+```{r}
+
+WorldGenderData2010 <- WorldGenderData %>% 
+  filter(year == 2010)
+
+WorldGenderData2019 <- WorldGenderData %>% 
+  filter(year == 2019)
+
+```
+
+-------------------------------------------------------------
+#Step 3: Merge the data to the shapefile
+-------------------------------------------------------------
+```{r}
+
+WorldGenderMap2010 <- WorldMapShp %>% 
+  left_join(., 
+            WorldGenderData2010,
+            by = c("country" = "country")) %>% 
+  rename(value_10 = value)
+#plot(WorldGenderMap2010['value'])
+
+WorldGenderMap2019 <- WorldMapShp %>% 
+  left_join(., 
+            WorldGenderData2019,
+            by = c("country" = "country")) %>% 
+  rename(value_19 = value)
+
+```
+
+-------------------------------------------------------------
+#Step 4: Calculate the difference in GII
+-------------------------------------------------------------
+```{r}
+  
+WorldGenderMap_Diff <- WorldGenderMap2010 %>%
+  # Add value_19 in
+  mutate(value_19 = WorldGenderMap2019$value_19[match(WorldGenderMap2010$country, WorldGenderMap2019$country)]) %>%
+  # Calculate the difference 2019-2010
+  mutate(value_diff = value_19 - value_10) %>% 
+  # Select needed column and put columns in order
+  select(country, value_10, value_19, value_diff, geometry) %>% 
+  # put rows in order
+  arrange(country) %>% 
+  drop_na(value_diff)
+  
+
+plot(WorldGenderMap_Diff["value_diff"])
+
+
+```
+
+-------------------------------------------------------------
+#Visualise the data - map
+-------------------------------------------------------------
+```{r}
+
+tmap_mode("view")
+
+
+tm_shape(WorldGenderMap_Diff) + 
+  ##套疊上polygon("某欄",style="數據切分法",palette="色票",midpoint="指定中心值",title="legend表名",alpha=數值)
+  tm_polygons("value_diff", 
+              style = "fixed", # Fixed breaks to control color intervals
+              #cols4all::c4a_gui()
+              palette = c("incandescent"), # Gradient from green to red
+              breaks = c(-0.6, -0.2,-0.1,-0.05, 0.0, 0.2), # Custom intervals
+              labels = c("-0.6~-0.2", "-0.2~-0.1","-0.1~-0.05" ,"-0.05~0,0", "0.0~0.2"), # Custom labels
+              midpoint = NA, # No midpoint since it's manually controlled by breaks
+              title = "Difference 2010~2019", # Title for the color scale
+              alpha = 0.8) + 
+  tm_basemap(server = "OpenStreetMap") +
+  ##套疊上指南針
+  ##tm_compass(position = c("left", "bottom")) + 
+  ##套疊上比例尺
+  tm_scalebar(position = c("left", "bottom")) +
+  ##套疊上標題，legend的位置
+  tm_title("World Gender Inequality Index(GII) Difference 2010~2019")
+
+
+```
+
+
+
+
+
+-------------------------------------------------------------
+#Visualise the data - Histogram 2010 & 2019
+-------------------------------------------------------------
+```{r}
+
+xbinsno<-list(start=0, end=1, size = 0.05)
+
+
+Histogram <- plot_ly(alpha = 0.5) %>%
+  add_histogram(x = WorldGenderMap_Diff$value_10,
+                xbins=xbinsno, name="GII2010") %>%
+  add_histogram(x = WorldGenderMap_Diff$value_19,
+                xbins=xbinsno, name="GII2019") %>% 
+  layout(
+    barmode = "overlay", 
+    xaxis = list(title = "GII Value Difference", 
+                 range = c(0, 1)),
+    yaxis = list(title = "Frequency"),
+    title = "Histogram of Gender Inequality Index (2010 and 2019)"
+  )
+
+Histogram
+  
+
+```
+
+
+
+-------------------------------------------------------------
+#Visualise the data - difference
+-------------------------------------------------------------
+```{r}
+
+xbinsno2<-list(start=-0.6, end=0.2, size = 0.02)
+
+
+DiffBarChart <- plot_ly(alpha = 0.5) %>%
+  add_histogram(x = WorldGenderMap_Diff$value_diff,
+                xbins=xbinsno2, name="difference")%>% 
+  layout(
+    barmode = "overlay", 
+    xaxis = list(title = "GII Value Difference", 
+                 range = c(-0.6, 0.2)),
+    yaxis = list(title = "Frequency"),
+    title = "Histogram of GII Difference (2010-2019)"
+  )
+
+DiffBarChart
+  
+
+```
